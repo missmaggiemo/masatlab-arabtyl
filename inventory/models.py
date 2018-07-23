@@ -157,8 +157,8 @@ class Furniture(BaseModel):
 
 class Property(BaseModel):
     address = models.CharField(max_length=200, unique=True)
-    activation_date = models.DateTimeField(null=True)
-    deactivation_date = models.DateTimeField(null=True)
+    activation_date = models.DateTimeField(null=True, blank=True)
+    deactivation_date = models.DateTimeField(null=True, blank=True)
 
     def furniture(self):
         """ List furniture currently assigned to property """
