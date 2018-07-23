@@ -33,6 +33,12 @@ class Furniture(BaseModel):
     # No weird half-cents, plz
     current_unit_cost = models.DecimalField(max_digits=19, decimal_places=2, default=0)
 
+    @classmethod
+    def available_pieces(cls):
+        """ List all peices that aren't assigned or reserved """
+        all_furniture = cls.objects.filter(active=True)  # Exclude retired peices
+        return [f for f in all_furniture if not (f.is_assigned() or f.is_reserved())]
+
     def add_to_cart(self, cart):
         """ Convenience method
 
@@ -43,7 +49,30 @@ class Furniture(BaseModel):
             raise Exception('Furniture peice assigned or reserved')
         cf = self.cartfurniture_set.create(cart=cart)
         cf.save()
-        return cart
+        return self
+
+    def add_to_property(self, property):
+        """ Convenience method
+
+        Add the piece of furniture to a property, only if the
+        furniture is reserved.
+        """
+        if self.is_assigned():
+            raise Exception('Furniture peice already assigned')
+        if not self.is_reserved():
+            raise Exception('Furniture peice must be reserved before assigning')
+        # Remove from current cart (but keep history)
+        cf = self.cartfurniture_set.get(active=True)
+        cf.active = False
+        cf.save()
+        # Add to property
+        pf = self.propertyfurniture_set.create(property=property)
+        pf.save()
+        # Remove from warehouse (but keep history)
+        wf = self.warehousefurniture_set.get(active=True)
+        wf.active = False
+        wf.save()
+        return self
 
     def current_warehouse(self):
         """ Convenience method
@@ -154,10 +183,7 @@ class Cart(BaseModel):
 
     def check_out(self):
         for cf in self.cartfurniture_set.filter(active=True):
-            pf = PropertyFurniture(furniture=cf.furniture, property=self.property)
-            pf.save()
-            cf.active = False
-            cf.save()
+            cf.furniture.add_to_property(self.property)
         self.active = False
         self.save()
         return self
